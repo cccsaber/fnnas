@@ -5,15 +5,23 @@
 
 setenv load_addr "0x39000000"
 setenv overlay_error "false"
+test -n "${kernel_comp_addr_r}" || setenv kernel_comp_addr_r "0x04000000"
+test -n "${kernel_comp_size}" || setenv kernel_comp_size "0x08000000"
+
 # default values
-setenv rootdev "/dev/mmcblk0p1"
+setenv rootdev "/dev/mmcblk0p2"
 setenv verbosity "1"
-setenv console "both"
+setenv console "serial"
 setenv bootlogo "false"
 setenv rootfstype "ext4"
 setenv rootflags "rw,errors=remount-ro"
 setenv docker_optimizations "on"
 setenv earlycon "off"
+setenv consoleargs "console=ttyS0,1500000"
+setenv earlyconargs ""
+setenv extraargs "rw rootwait"
+setenv extraboardargs ""
+setenv overlay_prefix "rk3528"
 
 echo "Boot script loaded from ${devtype} ${devnum}"
 
@@ -24,19 +32,32 @@ fi
 
 if test "${logo}" = "disabled"; then setenv logo "logo.nologo"; fi
 
-if test "${console}" = "display" || test "${console}" = "both"; then setenv consoleargs "console=tty1"; fi
-if test "${console}" = "serial" || test "${console}" = "both"; then setenv consoleargs "${consoleargs} console=ttyS0,1500000"; fi
-if test "${earlycon}" = "on"; then setenv consoleargs "${earlyconargs} ${consoleargs}"; fi
-if test "${bootlogo}" = "true"; then setenv consoleargs "bootsplash.bootfile=bootsplash.armbian ${consoleargs}"; fi
+setenv boot_consoleargs
+if test "${console}" = "display"; then
+	setenv boot_consoleargs "console=tty1"
+fi
+if test "${console}" = "serial"; then
+	setenv boot_consoleargs "${consoleargs}"
+fi
+if test "${console}" = "both"; then
+	setenv boot_consoleargs "${consoleargs} console=tty1"
+fi
+if test "${earlycon}" = "on"; then
+	setenv boot_consoleargs "${earlyconargs} ${boot_consoleargs}"
+fi
+if test "${bootlogo}" = "true"; then
+	setenv boot_consoleargs "bootsplash.bootfile=bootsplash.armbian ${boot_consoleargs}"
+fi
 
 # get PARTUUID of first partition on SD/eMMC the boot script was loaded from
 if test "${devtype}" = "mmc"; then part uuid mmc ${devnum}:1 partuuid; fi
 
-setenv bootargs "root=${rootdev} rootwait rootfstype=${rootfstype} rootflags=${rootflags} ${consoleargs} consoleblank=0 loglevel=${verbosity} usb-storage.quirks=${usbstoragequirks} ${extraargs} ${extraboardargs}"
-
+setenv bootargs "root=${rootdev} rootwait rootfstype=${rootfstype} rootflags=${rootflags} ${boot_consoleargs} consoleblank=0 loglevel=${verbosity} ${extraargs} ${extraboardargs}"
+if test -n "${usbstoragequirks}"; then setenv bootargs "${bootargs} usb-storage.quirks=${usbstoragequirks}"; fi
 if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory swapaccount=1"; fi
 
 load ${devtype} ${devnum} ${ramdisk_addr_r} ${prefix}uInitrd
+setenv rdsize ${filesize}
 load ${devtype} ${devnum} ${kernel_addr_r} ${prefix}Image
 
 load ${devtype} ${devnum} ${fdt_addr_r} ${prefix}dtb/${fdtfile}
@@ -68,7 +89,7 @@ else
 		source ${load_addr}
 	fi
 fi
-booti ${kernel_addr_r} ${ramdisk_addr_r} ${fdt_addr_r}
+booti ${kernel_addr_r} ${ramdisk_addr_r}:${rdsize} ${fdt_addr_r}
 
 # Recompile with:
 # mkimage -C none -A arm -T script -n 'flatmax load script' -d /boot/boot.cmd /boot/boot.scr
