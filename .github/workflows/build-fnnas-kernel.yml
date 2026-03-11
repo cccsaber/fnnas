@@ -23,6 +23,10 @@ on:
         description: "Set fnnas debs repository"
         required: false
         default: "ophub/fnnas"
+        type: choice
+        options:
+          - ophub/fnnas
+          - cccsaber/linux-6.12.y-rockchip
       debs_install:
         description: "Install kernel debs files"
         required: false
