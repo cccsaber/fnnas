@@ -3,11 +3,21 @@
 # Please edit /boot/armbianEnv.txt to set supported parameters
 #
 
-setenv devtype mmc
-setenv devnum 0
-setenv bootpart 1
-setenv prefix /
-setenv load_addr 0x39000000
+if test -z "${devtype}"; then
+	setenv devtype mmc
+fi
+if test -z "${devnum}"; then
+	setenv devnum 1
+fi
+if test -z "${bootpart}"; then
+	setenv bootpart 2
+fi
+if test -z "${prefix}"; then
+	setenv prefix /
+fi
+if test -z "${load_addr}"; then
+	setenv load_addr 0x39000000
+fi
 setenv overlay_error false
 
 echo "[fnnas] boot.cmd devtype=${devtype} devnum=${devnum} bootpart=${bootpart} prefix=${prefix}"
@@ -30,7 +40,15 @@ fi
 
 # default values
 if test -z "${rootdev}"; then
-	setenv rootdev /dev/mmcblk0p2
+	if test "${devtype}" = "mmc"; then
+		if test "${devnum}" = "0"; then
+			setenv rootdev /dev/mmcblk0p3
+		else
+			setenv rootdev /dev/mmcblk1p3
+		fi
+	else
+		setenv rootdev /dev/mmcblk1p3
+	fi
 fi
 if test -z "${verbosity}"; then
 	setenv verbosity 1
@@ -75,7 +93,7 @@ if test -z "${user_overlays}"; then
 	setenv user_overlays
 fi
 
-echo "Boot script loaded from mmc ${devnum}:${bootpart}"
+echo "Boot script loaded from ${devtype} ${devnum}:${bootpart}"
 echo "[fnnas] boot.cmd rootdev=${rootdev} fdtfile=${fdtfile}"
 
 if test -e ${devtype} ${devnum}:${bootpart} ${prefix}armbianEnv.txt; then
@@ -169,5 +187,4 @@ fi
 printenv bootargs
 booti ${kernel_addr_r} ${ramdisk_addr_r}:${rdsize} ${fdt_addr_r}
 
-# Recompile with:
-# mkimage -C none -A arm -T script -n 'flatmax load script' -d /boot/boot.cmd /boot/boot.scr
+# H20Plus packaging rebuilds /boot/boot.scr from this file during image creation.
