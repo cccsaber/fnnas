@@ -973,6 +973,15 @@ path.write_text(path.read_text(encoding="utf-8").replace(old, new), encoding="ut
 PY
     }
 
+    # Rebuild boot.scr from boot.cmd so bootfs only keeps one source of truth.
+    boot_cmd_file="boot.cmd"
+    boot_scr_file="boot.scr"
+    if [[ -f "${boot_cmd_file}" ]]; then
+        command -v mkimage >/dev/null 2>&1 || error_msg "Missing [ mkimage ] command for [ ${boot_cmd_file} ]"
+        mkimage -C none -A arm -T script -n "flatmax load script" -d "${boot_cmd_file}" "${boot_scr_file}" >/dev/null 2>&1 ||
+            error_msg "Failed to create [ ${boot_scr_file} ] from [ ${boot_cmd_file} ]"
+    fi
+
     # Check device configuration files
     [[ -f "${uenv_conf_file}" || -f "${rename_extlinux_file}" || -f "${armbianenv_conf_file}" || -f "${fnenv_conf_file}" || -f "${grub_cfg_file}" ]] || error_msg "Missing [ /boot bootloader config files ]"
 }

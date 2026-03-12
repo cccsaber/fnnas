@@ -3,92 +3,162 @@
 # Please edit /boot/armbianEnv.txt to set supported parameters
 #
 
-setenv load_addr "0x39000000"
-setenv overlay_error "false"
-test -n "${kernel_comp_addr_r}" || setenv kernel_comp_addr_r "0x04000000"
-test -n "${kernel_comp_size}" || setenv kernel_comp_size "0x08000000"
+setenv devtype mmc
+setenv devnum 0
+setenv bootpart 1
+setenv prefix /
+setenv load_addr 0x39000000
+setenv overlay_error false
+
+if test -z "${kernel_addr_r}"; then
+	setenv kernel_addr_r 0x02000000
+fi
+if test -z "${fdt_addr_r}"; then
+	setenv fdt_addr_r 0x12000000
+fi
+if test -z "${ramdisk_addr_r}"; then
+	setenv ramdisk_addr_r 0x12180000
+fi
+if test -z "${kernel_comp_addr_r}"; then
+	setenv kernel_comp_addr_r 0x04000000
+fi
+if test -z "${kernel_comp_size}"; then
+	setenv kernel_comp_size 0x08000000
+fi
 
 # default values
-setenv rootdev "/dev/mmcblk0p2"
-setenv verbosity "1"
-setenv console "serial"
-setenv bootlogo "false"
-setenv rootfstype "ext4"
-setenv rootflags "rw,errors=remount-ro"
-setenv docker_optimizations "on"
-setenv earlycon "off"
-setenv consoleargs "console=ttyS0,1500000"
-setenv earlyconargs ""
-setenv extraargs "rw rootwait"
-setenv extraboardargs ""
-setenv overlay_prefix "rk3528"
+if test -z "${rootdev}"; then
+	setenv rootdev /dev/mmcblk0p2
+fi
+if test -z "${verbosity}"; then
+	setenv verbosity 1
+fi
+if test -z "${console}"; then
+	setenv console both
+fi
+if test -z "${bootlogo}"; then
+	setenv bootlogo false
+fi
+if test -z "${rootfstype}"; then
+	setenv rootfstype ext4
+fi
+if test -z "${rootflags}"; then
+	setenv rootflags rw,errors=remount-ro
+fi
+if test -z "${docker_optimizations}"; then
+	setenv docker_optimizations on
+fi
+if test -z "${earlycon}"; then
+	setenv earlycon off
+fi
+if test -z "${consoleargs}"; then
+	setenv consoleargs console=ttyS0,1500000
+fi
+if test -z "${earlyconargs}"; then
+	setenv earlyconargs
+fi
+if test -z "${extraargs}"; then
+	setenv extraargs rw rootwait
+fi
+if test -z "${extraboardargs}"; then
+	setenv extraboardargs
+fi
+if test -z "${overlay_prefix}"; then
+	setenv overlay_prefix rk3528
+fi
+if test -z "${overlays}"; then
+	setenv overlays
+fi
+if test -z "${user_overlays}"; then
+	setenv user_overlays
+fi
 
-echo "Boot script loaded from ${devtype} ${devnum}"
+echo "Boot script loaded from mmc ${devnum}:${bootpart}"
 
-if test -e ${devtype} ${devnum} ${prefix}armbianEnv.txt; then
-	load ${devtype} ${devnum} ${load_addr} ${prefix}armbianEnv.txt
+if test -e ${devtype} ${devnum}:${bootpart} ${prefix}armbianEnv.txt; then
+	load ${devtype} ${devnum}:${bootpart} ${load_addr} ${prefix}armbianEnv.txt
 	env import -t ${load_addr} ${filesize}
 fi
 
-if test "${logo}" = "disabled"; then setenv logo "logo.nologo"; fi
+if test "${logo}" = "disabled"; then
+	setenv logo logo.nologo
+fi
 
 setenv boot_consoleargs
 if test "${console}" = "display"; then
-	setenv boot_consoleargs "console=tty1"
+	setenv boot_consoleargs console=tty1
 fi
 if test "${console}" = "serial"; then
-	setenv boot_consoleargs "${consoleargs}"
+	setenv boot_consoleargs ${consoleargs}
 fi
 if test "${console}" = "both"; then
-	setenv boot_consoleargs "${consoleargs} console=tty1"
+	setenv boot_consoleargs ${consoleargs} console=tty1
 fi
 if test "${earlycon}" = "on"; then
-	setenv boot_consoleargs "${earlyconargs} ${boot_consoleargs}"
+	setenv boot_consoleargs ${earlyconargs} ${boot_consoleargs}
 fi
 if test "${bootlogo}" = "true"; then
-	setenv boot_consoleargs "bootsplash.bootfile=bootsplash.armbian ${boot_consoleargs}"
+	setenv boot_consoleargs bootsplash.bootfile=bootsplash.armbian ${boot_consoleargs}
 fi
 
-# get PARTUUID of first partition on SD/eMMC the boot script was loaded from
-if test "${devtype}" = "mmc"; then part uuid mmc ${devnum}:1 partuuid; fi
+setenv bootargs root=${rootdev} rootwait rootfstype=${rootfstype} rootflags=${rootflags} ${boot_consoleargs} consoleblank=0 loglevel=${verbosity} ${extraargs} ${extraboardargs}
+if test -n "${usbstoragequirks}"; then
+	setenv bootargs ${bootargs} usb-storage.quirks=${usbstoragequirks}
+fi
+if test "${docker_optimizations}" = "on"; then
+	setenv bootargs ${bootargs} cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory swapaccount=1
+fi
 
-setenv bootargs "root=${rootdev} rootwait rootfstype=${rootfstype} rootflags=${rootflags} ${boot_consoleargs} consoleblank=0 loglevel=${verbosity} ${extraargs} ${extraboardargs}"
-if test -n "${usbstoragequirks}"; then setenv bootargs "${bootargs} usb-storage.quirks=${usbstoragequirks}"; fi
-if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory swapaccount=1"; fi
-
-load ${devtype} ${devnum} ${ramdisk_addr_r} ${prefix}uInitrd
+echo "Loading initrd ${prefix}uInitrd"
+load ${devtype} ${devnum}:${bootpart} ${ramdisk_addr_r} ${prefix}uInitrd
 setenv rdsize ${filesize}
-load ${devtype} ${devnum} ${kernel_addr_r} ${prefix}Image
 
-load ${devtype} ${devnum} ${fdt_addr_r} ${prefix}dtb/${fdtfile}
+echo "Loading kernel ${prefix}Image"
+load ${devtype} ${devnum}:${bootpart} ${kernel_addr_r} ${prefix}Image
+
+echo "Loading dtb ${prefix}dtb/${fdtfile}"
+load ${devtype} ${devnum}:${bootpart} ${fdt_addr_r} ${prefix}dtb/${fdtfile}
 fdt addr ${fdt_addr_r}
 fdt resize 65536
+
 for overlay_file in ${overlays}; do
-	if load ${devtype} ${devnum} ${load_addr} ${prefix}dtb/rockchip/overlay/${overlay_prefix}-${overlay_file}.dtbo; then
+	if load ${devtype} ${devnum}:${bootpart} ${load_addr} ${prefix}dtb/rockchip/overlay/${overlay_prefix}-${overlay_file}.dtbo; then
 		echo "Applying kernel provided DT overlay ${overlay_prefix}-${overlay_file}.dtbo"
-		fdt apply ${load_addr} || setenv overlay_error "true"
+		if fdt apply ${load_addr}; then
+			echo "Applied ${overlay_prefix}-${overlay_file}.dtbo"
+		else
+			setenv overlay_error true
+		fi
 	fi
 done
+
 for overlay_file in ${user_overlays}; do
-	if load ${devtype} ${devnum} ${load_addr} ${prefix}overlay-user/${overlay_file}.dtbo; then
+	if load ${devtype} ${devnum}:${bootpart} ${load_addr} ${prefix}overlay-user/${overlay_file}.dtbo; then
 		echo "Applying user provided DT overlay ${overlay_file}.dtbo"
-		fdt apply ${load_addr} || setenv overlay_error "true"
+		if fdt apply ${load_addr}; then
+			echo "Applied ${overlay_file}.dtbo"
+		else
+			setenv overlay_error true
+		fi
 	fi
 done
+
 if test "${overlay_error}" = "true"; then
 	echo "Error applying DT overlays, restoring original DT"
-	load ${devtype} ${devnum} ${fdt_addr_r} ${prefix}dtb/${fdtfile}
+	load ${devtype} ${devnum}:${bootpart} ${fdt_addr_r} ${prefix}dtb/${fdtfile}
 else
-	if load ${devtype} ${devnum} ${load_addr} ${prefix}dtb/rockchip/overlay/${overlay_prefix}-fixup.scr; then
+	if load ${devtype} ${devnum}:${bootpart} ${load_addr} ${prefix}dtb/rockchip/overlay/${overlay_prefix}-fixup.scr; then
 		echo "Applying kernel provided DT fixup script (${overlay_prefix}-fixup.scr)"
 		source ${load_addr}
 	fi
-	if test -e ${devtype} ${devnum} ${prefix}fixup.scr; then
-		load ${devtype} ${devnum} ${load_addr} ${prefix}fixup.scr
+	if test -e ${devtype} ${devnum}:${bootpart} ${prefix}fixup.scr; then
+		load ${devtype} ${devnum}:${bootpart} ${load_addr} ${prefix}fixup.scr
 		echo "Applying user provided fixup script (fixup.scr)"
 		source ${load_addr}
 	fi
 fi
+
+printenv bootargs
 booti ${kernel_addr_r} ${ramdisk_addr_r}:${rdsize} ${fdt_addr_r}
 
 # Recompile with:
