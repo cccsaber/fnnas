@@ -10,6 +10,8 @@ setenv prefix /
 setenv load_addr 0x39000000
 setenv overlay_error false
 
+echo "[fnnas] boot.cmd devtype=${devtype} devnum=${devnum} bootpart=${bootpart} prefix=${prefix}"
+
 if test -z "${kernel_addr_r}"; then
 	setenv kernel_addr_r 0x02000000
 fi
@@ -74,10 +76,15 @@ if test -z "${user_overlays}"; then
 fi
 
 echo "Boot script loaded from mmc ${devnum}:${bootpart}"
+echo "[fnnas] boot.cmd rootdev=${rootdev} fdtfile=${fdtfile}"
 
 if test -e ${devtype} ${devnum}:${bootpart} ${prefix}armbianEnv.txt; then
+	echo "[fnnas] loading ${prefix}armbianEnv.txt from ${devtype} ${devnum}:${bootpart}"
 	load ${devtype} ${devnum}:${bootpart} ${load_addr} ${prefix}armbianEnv.txt
+	echo "[fnnas] imported ${prefix}armbianEnv.txt size=${filesize}"
 	env import -t ${load_addr} ${filesize}
+else
+	echo "[fnnas] missing ${prefix}armbianEnv.txt on ${devtype} ${devnum}:${bootpart}"
 fi
 
 if test "${logo}" = "disabled"; then
@@ -108,6 +115,7 @@ fi
 if test "${docker_optimizations}" = "on"; then
 	setenv bootargs ${bootargs} cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory swapaccount=1
 fi
+echo "[fnnas] bootargs root=${rootdev} rootfstype=${rootfstype} rootflags=${rootflags}"
 
 echo "Loading initrd ${prefix}uInitrd"
 load ${devtype} ${devnum}:${bootpart} ${ramdisk_addr_r} ${prefix}uInitrd
