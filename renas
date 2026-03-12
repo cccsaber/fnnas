@@ -899,6 +899,14 @@ refactor_bootfs() {
     process_msg "(5/7) Refactor bootfs files."
     cd ${tag_bootfs}
 
+    board_rootfs_bootenv="${different_files}/${board}/rootfs/boot.env"
+    if [[ -f "${board_rootfs_bootenv}" ]]; then
+        cp -f "${board_rootfs_bootenv}" "${tag_rootfs}/boot.env"
+        [[ -f "${tag_rootfs}/boot.env" ]] || error_msg "Missing [ /boot.env ] in rootfs for [ ${board} ]"
+        # Some Rockchip boards expect boot.env in the rootfs root, not the bootfs.
+        [[ -f "${tag_bootfs}/boot.env" ]] && rm -f "${tag_bootfs}/boot.env"
+    fi
+
     # Process Amlogic series boot partition files
     [[ "${PLATFORM}" == "amlogic" && "${need_overload}" == "yes" ]] && {
         # Add u-boot.ext for Amlogic 5.10 kernel
