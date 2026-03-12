@@ -170,61 +170,6 @@ get_textoffset() {
     [[ "$(hexdump -n 15 -x "${vmlinuz_name}" 2>/dev/null | head -n 1 | awk '{print $7}')" == "0108" ]] && need_overload="no"
 }
 
-build_plain_uboot_script() {
-    script_input="${1}"
-    script_output="${2}"
-    script_name="${3}"
-    [[ -f "${script_input}" ]] || error_msg "Missing script source file: [ ${script_input} ]"
-    [[ -n "${script_output}" && -n "${script_name}" ]] || error_msg "Script output parameters are missing."
-
-    python3 - "${script_input}" "${script_output}" "${script_name}" <<'PY'
-import struct
-import sys
-import time
-import zlib
-from pathlib import Path
-
-script_input = Path(sys.argv[1])
-script_output = Path(sys.argv[2])
-script_name = sys.argv[3].encode("ascii", "ignore")[:31]
-script_data = script_input.read_bytes()
-
-header = struct.pack(
-    ">7I4B32s",
-    0x27051956,
-    0,
-    int(time.time()),
-    len(script_data),
-    0,
-    0,
-    zlib.crc32(script_data) & 0xFFFFFFFF,
-    5,
-    2,
-    6,
-    0,
-    script_name.ljust(32, b"\0"),
-)
-header_crc = zlib.crc32(header) & 0xFFFFFFFF
-header = header[:4] + struct.pack(">I", header_crc) + header[8:]
-script_output.write_bytes(header + script_data)
-PY
-
-    [[ -f "${script_output}" ]] || error_msg "Failed to create plain U-Boot script: [ ${script_output} ]"
-}
-
-validate_plain_uboot_script() {
-    script_input="${1}"
-    script_output="${2}"
-    [[ -f "${script_input}" && -f "${script_output}" ]] || error_msg "Cannot validate missing script files."
-
-    expected_size="$(stat -c %s "${script_input}")"
-    actual_size="$(stat -c %s "${script_output}")"
-    [[ "${actual_size}" -eq "$((expected_size + 64))" ]] ||
-        error_msg "Invalid plain U-Boot script size: [ ${script_output} ]"
-    cmp -s "${script_input}" <(tail -c +65 "${script_output}") ||
-        error_msg "Plain U-Boot script payload mismatch: [ ${script_output} ]"
-}
-
 init_var() {
     echo -e "${STEPS} Start Initializing Variables..."
 
@@ -1045,14 +990,9 @@ PY
     boot_scr_file="boot.scr"
     if [[ -f "${boot_cmd_file}" ]]; then
         rm -f "${boot_scr_file}"
-        if [[ "${board}" == "h20plus" ]]; then
-            build_plain_uboot_script "${boot_cmd_file}" "${boot_scr_file}" "flatmax load script"
-            validate_plain_uboot_script "${boot_cmd_file}" "${boot_scr_file}"
-        else
-            command -v mkimage >/dev/null 2>&1 || error_msg "Missing [ mkimage ] command for [ ${boot_cmd_file} ]"
-            mkimage -C none -A arm -T script -n "flatmax load script" -d "${boot_cmd_file}" "${boot_scr_file}" >/dev/null 2>&1 ||
-                error_msg "Failed to create [ ${boot_scr_file} ] from [ ${boot_cmd_file} ]"
-        fi
+        command -v mkimage >/dev/null 2>&1 || error_msg "Missing [ mkimage ] command for [ ${boot_cmd_file} ]"
+        mkimage -C none -A arm -T script -n "flatmax load script" -d "${boot_cmd_file}" "${boot_scr_file}" >/dev/null 2>&1 ||
+            error_msg "Failed to create [ ${boot_scr_file} ] from [ ${boot_cmd_file} ]"
     fi
 
     # Check device configuration files
