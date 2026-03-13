@@ -909,8 +909,27 @@ replace_kernel() {
     tar -mxzf ${kernel_boot} -C ${tag_bootfs}
     [[ "${PLATFORM}" == "allwinner" ]] && (cd ${tag_bootfs} && cp -f uInitrd-${kernel_name} uInitrd && cp -f vmlinuz-${kernel_name} Image)
     [[ "${PLATFORM}" == "amlogic" ]] && (cd ${tag_bootfs} && cp -f uInitrd-${kernel_name} uInitrd && cp -f vmlinuz-${kernel_name} zImage)
-    [[ "${PLATFORM}" == "rockchip" ]] && (cd ${tag_bootfs} && ln -sf uInitrd-${kernel_name} uInitrd && ln -sf vmlinuz-${kernel_name} Image)
+    [[ "${PLATFORM}" == "rockchip" ]] && (
+        cd ${tag_bootfs}
+        ln -sf uInitrd-${kernel_name} uInitrd
+        kernel_image_type="$(file -b "vmlinuz-${kernel_name}" 2>/dev/null)"
+        [[ -n "${kernel_image_type}" ]] || error_msg "Failed to identify [ vmlinuz-${kernel_name} ] format"
+        echo -e "${INFO} fnnas: rockchip kernel source format [ ${kernel_image_type} ]"
+        rm -f Image
+        if echo "${kernel_image_type}" | grep -qi '^gzip compressed data'; then
+            gzip -dc "vmlinuz-${kernel_name}" >Image || error_msg "Failed to decompress gzip [ vmlinuz-${kernel_name} ] to [ Image ]"
+        elif echo "${kernel_image_type}" | grep -qi '^linux kernel arm64 boot executable image'; then
+            cp -f "vmlinuz-${kernel_name}" Image || error_msg "Failed to copy raw ARM64 Image [ vmlinuz-${kernel_name} ] to [ Image ]"
+        else
+            error_msg "Unsupported rockchip kernel image format for [ vmlinuz-${kernel_name} ]: [ ${kernel_image_type} ]"
+        fi
+        prepared_kernel_image_type="$(file -b "Image" 2>/dev/null)"
+        [[ -n "${prepared_kernel_image_type}" ]] || error_msg "Failed to identify prepared [ /boot/Image ] format"
+        echo -e "${INFO} fnnas: rockchip prepared /boot/Image format [ ${prepared_kernel_image_type} ]"
+        echo "${prepared_kernel_image_type}" | grep -qi '^linux kernel arm64 boot executable image' || error_msg "Prepared [ /boot/Image ] is not a raw ARM64 Image for [ ${board} ]: [ ${prepared_kernel_image_type} ]"
+    )
     [[ "$(ls ${tag_bootfs}/*${kernel_name} -l 2>/dev/null | grep "^-" | wc -l)" -ge "2" ]] || error_msg "The /boot files is missing."
+    [[ "${PLATFORM}" != "rockchip" || -s "${tag_bootfs}/Image" ]] || error_msg "Missing prepared [ /boot/Image ] for [ ${board} ]"
     [[ "${PLATFORM}" == "amlogic" ]] && get_textoffset "${tag_bootfs}/zImage"
 
     # 02. For /boot/dtb/${PLATFORM}/*

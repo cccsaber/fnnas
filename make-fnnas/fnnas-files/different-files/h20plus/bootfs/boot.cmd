@@ -75,22 +75,22 @@ if test -z "${consoleargs}"; then
 	setenv consoleargs console=ttyS0,1500000
 fi
 if test -z "${earlyconargs}"; then
-	setenv earlyconargs
+	setenv earlyconargs ""
 fi
 if test -z "${extraargs}"; then
 	setenv extraargs rw rootwait
 fi
 if test -z "${extraboardargs}"; then
-	setenv extraboardargs
+	setenv extraboardargs ""
 fi
 if test -z "${overlay_prefix}"; then
 	setenv overlay_prefix rk3528
 fi
 if test -z "${overlays}"; then
-	setenv overlays
+	setenv overlays ""
 fi
 if test -z "${user_overlays}"; then
-	setenv user_overlays
+	setenv user_overlays ""
 fi
 
 echo "Boot script loaded from ${devtype} ${devnum}:${bootpart}"
@@ -109,7 +109,7 @@ if test "${logo}" = "disabled"; then
 	setenv logo logo.nologo
 fi
 
-setenv boot_consoleargs
+setenv boot_consoleargs ""
 if test "${console}" = "display"; then
 	setenv boot_consoleargs console=tty1
 fi
