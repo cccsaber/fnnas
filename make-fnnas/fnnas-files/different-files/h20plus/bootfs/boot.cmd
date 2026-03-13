@@ -126,12 +126,12 @@ if test "${bootlogo}" = "true"; then
 	setenv boot_consoleargs bootsplash.bootfile=bootsplash.armbian ${boot_consoleargs}
 fi
 
-setenv bootargs root=${rootdev} rootwait rootfstype=${rootfstype} rootflags=${rootflags} ${boot_consoleargs} consoleblank=0 loglevel=${verbosity} ${extraargs} ${extraboardargs}
+setenv bootargs "root=${rootdev} rootwait rootfstype=${rootfstype} rootflags=${rootflags} ${boot_consoleargs} consoleblank=0 loglevel=${verbosity} ${extraargs} ${extraboardargs}"
 if test -n "${usbstoragequirks}"; then
-	setenv bootargs ${bootargs} usb-storage.quirks=${usbstoragequirks}
+	setenv bootargs "${bootargs} usb-storage.quirks=${usbstoragequirks}"
 fi
 if test "${docker_optimizations}" = "on"; then
-	setenv bootargs ${bootargs} cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory swapaccount=1
+	setenv bootargs "${bootargs} cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory swapaccount=1"
 fi
 echo "[fnnas] bootargs root=${rootdev} rootfstype=${rootfstype} rootflags=${rootflags}"
 
