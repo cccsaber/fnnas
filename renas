@@ -170,6 +170,37 @@ get_textoffset() {
     [[ "$(hexdump -n 15 -x "${vmlinuz_name}" 2>/dev/null | head -n 1 | awk '{print $7}')" == "0108" ]] && need_overload="no"
 }
 
+run_board_scripts() {
+    local board_scripts_dir=""
+    local board_script=""
+    local board_script_list=()
+
+    board_scripts_dir="${different_files}/${board}/scripts"
+    [[ -d "${board_scripts_dir}" ]] || return 0
+
+    shopt -s nullglob
+    board_script_list=("${board_scripts_dir}"/*.sh)
+    shopt -u nullglob
+    [[ "${#board_script_list[@]}" -gt 0 ]] || return 0
+
+    export FNNAS_BOARD="${board}"
+    export FNNAS_PLATFORM="${PLATFORM}"
+    export FNNAS_KERNEL="${kernel}"
+    export FNNAS_BOARD_DIR="${different_files}/${board}"
+    export FNNAS_BOARD_BOOTFS_DIR="${different_files}/${board}/bootfs"
+    export FNNAS_BOARD_ROOTFS_DIR="${different_files}/${board}/rootfs"
+    export FNNAS_TAG_BOOTFS_DIR="${tag_bootfs}"
+    export FNNAS_TAG_ROOTFS_DIR="${tag_rootfs}"
+
+    echo -e "${INFO} fnnas: run board scripts from [ ${board_scripts_dir} ]"
+    for board_script in "${board_script_list[@]}"; do
+        [[ -x "${board_script}" ]] || continue
+        echo -e "${INFO} fnnas: execute [ ${board_script} ]"
+        bash "${board_script}" || error_msg "Failed to execute board script [ ${board_script} ]"
+    done
+}
+
+
 init_var() {
     echo -e "${STEPS} Start Initializing Variables..."
 
@@ -824,6 +855,9 @@ copy_files() {
     [[ -d "${platform_bootfs}" ]] && cp -rf ${platform_bootfs}/. ${tag_bootfs}
     [[ -d "${platform_rootfs}" ]] && cp -af --no-preserve=ownership ${platform_rootfs}/. ${tag_rootfs}
 
+    # Run board-level scripts before copying different files.
+    run_board_scripts
+
     # Copy the different files
     different_bootfs="${different_files}/${board}/bootfs"
     different_rootfs="${different_files}/${board}/rootfs"
@@ -984,16 +1018,6 @@ new = sys.argv[3]
 path.write_text(path.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
 PY
     }
-
-    # Rebuild boot.scr from boot.cmd so bootfs only keeps one source of truth.
-    boot_cmd_file="boot.cmd"
-    boot_scr_file="boot.scr"
-    if [[ -f "${boot_cmd_file}" ]]; then
-        rm -f "${boot_scr_file}"
-        command -v mkimage >/dev/null 2>&1 || error_msg "Missing [ mkimage ] command for [ ${boot_cmd_file} ]"
-        mkimage -C none -A arm -T script -n "flatmax load script" -d "${boot_cmd_file}" "${boot_scr_file}" >/dev/null 2>&1 ||
-            error_msg "Failed to create [ ${boot_scr_file} ] from [ ${boot_cmd_file} ]"
-    fi
 
     # Check device configuration files
     [[ -f "${uenv_conf_file}" || -f "${rename_extlinux_file}" || -f "${armbianenv_conf_file}" || -f "${fnenv_conf_file}" || -f "${grub_cfg_file}" ]] || error_msg "Missing [ /boot bootloader config files ]"

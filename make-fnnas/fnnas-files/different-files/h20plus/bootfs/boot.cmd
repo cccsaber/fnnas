@@ -187,4 +187,6 @@ fi
 printenv bootargs
 booti ${kernel_addr_r} ${ramdisk_addr_r}:${rdsize} ${fdt_addr_r}
 
-# H20Plus packaging rebuilds /boot/boot.scr from this file during image creation.
+# renas runs executable ../scripts/*.sh for this board in filename order before copying board files into the image.
+# You can also run ../scripts/10-rebuild-boot-scr.sh manually after editing this file.
+# That script downloads mkimage from the cccsaber/u-boot Release and validates it before rebuild.
