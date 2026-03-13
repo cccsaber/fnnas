@@ -31,6 +31,8 @@ cleanup() {
 trap cleanup EXIT
 
 [[ -f "${boot_cmd}" ]] || die "Missing ${boot_cmd}"
+log "bootfs dir ${bootfs_dir}"
+log "boot.cmd sha256 $(sha256sum "${boot_cmd}" | awk '{print $1}')"
 [[ "$(uname -m)" =~ ^(x86_64|amd64)$ ]] || die "Remote ${mkimage_asset_name} only supports x86_64 hosts"
 
 mkdir -p "$(dirname "${mkimage_bin}")"
@@ -61,4 +63,5 @@ log "rebuilding ${boot_scr} from ${boot_cmd}"
     die "Failed to rebuild ${boot_scr}"
 
 "${mkimage_bin}" -l "${boot_scr}" >/dev/null 2>&1 || die "Generated ${boot_scr} failed mkimage header validation"
+log "boot.scr sha256 $(sha256sum "${boot_scr}" | awk '{print $1}')"
 log "rebuilt ${boot_scr} successfully"
